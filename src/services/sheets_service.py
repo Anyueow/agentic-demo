@@ -44,13 +44,26 @@ class GoogleSheetsService:
             self.worksheet.append_row(self.config.get_worksheet_headers())
     
     def get_pending_leads(self) -> List[Dict]:
-        """Get all leads with empty status"""
+        """Get all leads with empty status, standardizing columns"""
         try:
-            all_leads = self.worksheet.get_all_records()
-            return [
-                lead for lead in all_leads
-                if not lead.get('STATUS') or lead.get('STATUS') == ''
-            ]
+            # Get raw values
+            values = self.worksheet.get_all_values()
+            if not values:
+                return []
+            headers = values[0]
+            data_rows = values[1:]
+            # Map headers to standard names
+            standard_headers = []
+            for h in headers:
+                std = self.config.get_standard_column_name(h)
+                standard_headers.append(std if std else h)
+            # Build records
+            all_leads = []
+            for row in data_rows:
+                record = {standard_headers[i]: row[i] if i < len(row) else '' for i in range(len(standard_headers))}
+                all_leads.append(record)
+            # Filter for pending leads
+            return [lead for lead in all_leads if not lead.get('STATUS') or lead.get('STATUS') == '']
         except Exception as e:
             print(f"Error getting pending leads: {str(e)}")
             return []

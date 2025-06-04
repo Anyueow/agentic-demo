@@ -17,6 +17,62 @@ from smolagents.agents import ToolCallingAgent
 from smolagents.tools import Tool
 from ..services.together_service import TogetherService
 from ..config.llm_config import AGENT_CONFIGS
+import asyncio
+
+# --- Tool Classes ---
+class WebSearchTool(Tool):
+    name = "web_search"
+    description = "Search and analyze company website content."
+    inputs = {"url": {"type": "string", "description": "The URL of the company website."}}
+    output_type = "object"
+    def forward(self, url: str):
+        return self.agent.fetch_website_content(url)
+
+class ContentAnalysisTool(Tool):
+    name = "content_analysis"
+    description = "Analyze website content for export operations and pain points."
+    inputs = {"content": {"type": "object", "description": "Website content sections."}}
+    output_type = "object"
+    def forward(self, content: dict):
+        return self.agent._analyze_content(content)
+
+class AnalysisReviewTool(Tool):
+    name = "analysis_review"
+    description = "Review and validate company analysis."
+    inputs = {"analysis": {"type": "object", "description": "Company analysis."}}
+    output_type = "object"
+    def forward(self, analysis: dict):
+        return self.agent._review_analysis(analysis)
+
+class PropositionGeneratorTool(Tool):
+    name = "proposition_generator"
+    description = "Generate value propositions based on analysis."
+    inputs = {"analysis": {"type": "object", "description": "Company analysis."}}
+    output_type = "object"
+    def forward(self, analysis: dict):
+        return self.agent._generate_proposition(analysis)
+
+class MessageFormatterTool(Tool):
+    name = "message_formatter"
+    description = "Format messages for different channels."
+    inputs = {
+        "company_data": {"type": "object", "description": "Company data."},
+        "value_proposition": {"type": "object", "description": "Value proposition."}
+    }
+    output_type = "object"
+    def forward(self, company_data: dict, value_proposition: dict):
+        return self.agent._format_message(company_data, value_proposition)
+
+class ChannelAdapterTool(Tool):
+    name = "channel_adapter"
+    description = "Adapt message tone and content for different channels."
+    inputs = {
+        "message": {"type": "object", "description": "Message to adapt."},
+        "channel": {"type": "string", "description": "Channel name (email, sms, etc)."}
+    }
+    output_type = "string"
+    def forward(self, message: dict, channel: str):
+        return self.agent._adapt_for_channel(message, channel)
 
 class ProcessLeadsAgent:
     """Agent for processing leads and generating value propositions"""
@@ -28,76 +84,40 @@ class ProcessLeadsAgent:
         
         # Initialize smolagents
         self.company_analyzer = ToolCallingAgent(
-            name=AGENT_CONFIGS['company_analyzer'].name,
+            name="company_analyzer",
             description=AGENT_CONFIGS['company_analyzer'].description,
-            tools=self._create_company_analyzer_tools(),
-            model=self.together,
-            memory=AGENT_CONFIGS['company_analyzer'].memory,
-            max_turns=AGENT_CONFIGS['company_analyzer'].max_turns
+            tools=[
+                WebSearchTool(),
+                ContentAnalysisTool()
+            ],
+            model=self.together
         )
+        for tool in self.company_analyzer.tools.values():
+            tool.agent = self
         
         self.value_proposition_generator = ToolCallingAgent(
-            name=AGENT_CONFIGS['value_proposition_generator'].name,
+            name="value_proposition_generator",
             description=AGENT_CONFIGS['value_proposition_generator'].description,
-            tools=self._create_value_proposition_tools(),
-            model=self.together,
-            memory=AGENT_CONFIGS['value_proposition_generator'].memory,
-            max_turns=AGENT_CONFIGS['value_proposition_generator'].max_turns
+            tools=[
+                AnalysisReviewTool(),
+                PropositionGeneratorTool()
+            ],
+            model=self.together
         )
+        for tool in self.value_proposition_generator.tools.values():
+            tool.agent = self
         
         self.message_personalizer = ToolCallingAgent(
-            name=AGENT_CONFIGS['message_personalizer'].name,
+            name="message_personalizer",
             description=AGENT_CONFIGS['message_personalizer'].description,
-            tools=self._create_message_personalizer_tools(),
-            model=self.together,
-            memory=AGENT_CONFIGS['message_personalizer'].memory,
-            max_turns=AGENT_CONFIGS['message_personalizer'].max_turns
+            tools=[
+                MessageFormatterTool(),
+                ChannelAdapterTool()
+            ],
+            model=self.together
         )
-    
-    def _create_company_analyzer_tools(self) -> list[Tool]:
-        """Create tools for company analysis"""
-        return [
-            Tool(
-                name="web_search",
-                description="Search and analyze company website content",
-                function=self.fetch_website_content
-            ),
-            Tool(
-                name="content_analysis",
-                description="Analyze website content for export operations and pain points",
-                function=self._analyze_content
-            )
-        ]
-    
-    def _create_value_proposition_tools(self) -> list[Tool]:
-        """Create tools for value proposition generation"""
-        return [
-            Tool(
-                name="analysis_review",
-                description="Review and validate company analysis",
-                function=self._review_analysis
-            ),
-            Tool(
-                name="proposition_generator",
-                description="Generate value propositions based on analysis",
-                function=self._generate_proposition
-            )
-        ]
-    
-    def _create_message_personalizer_tools(self) -> list[Tool]:
-        """Create tools for message personalization"""
-        return [
-            Tool(
-                name="message_formatter",
-                description="Format messages for different channels",
-                function=self._format_message
-            ),
-            Tool(
-                name="channel_adapter",
-                description="Adapt message tone and content for different channels",
-                function=self._adapt_for_channel
-            )
-        ]
+        for tool in self.message_personalizer.tools.values():
+            tool.agent = self
     
     async def initialize(self):
         """Initialize async resources"""
@@ -269,4 +289,24 @@ class ProcessLeadsAgent:
             return {'status': 'error', 'error': str(e)}
             
         finally:
-            await self.cleanup() 
+            await self.cleanup()
+
+    def process_lead(self, lead: dict) -> bool:
+        """Synchronous wrapper for async process method, returns True on success, False on error."""
+        try:
+            # Use asyncio.run if no event loop is running, else use run_until_complete
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                result = asyncio.ensure_future(self.process(lead))
+                # This is not ideal, but for Gradio sync context, we block until done
+                while not result.done():
+                    pass
+                output = result.result()
+            else:
+                output = asyncio.run(self.process(lead))
+            return output.get('status') == 'success'
+        except Exception as e:
+            return False 

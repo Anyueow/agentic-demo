@@ -39,6 +39,7 @@ class Config:
     
     def __init__(self):
         load_dotenv()
+        self.column_mapping = ColumnMapping()
         
         # Google Sheets configuration
         self.google_credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')

@@ -1,6 +1,7 @@
 import gradio as gr
-from abm_agent import ABMLeadGenAgent
+from src.agents.process_leads_agent import ProcessLeadsAgent
 from src.core.config import Config
+from src.services.sheets_service import GoogleSheetsService
 import json
 from typing import Dict, List
 import threading
@@ -11,17 +12,18 @@ class ABMLeadGenUI:
     
     def __init__(self):
         self.config = Config()
-        self.agent = ABMLeadGenAgent()
+        self.sheets_service = GoogleSheetsService(self.config)
+        self.agent = ProcessLeadsAgent(self.config)
         self.processing = False
         self.logs = []
     
     def get_pending_leads(self) -> Dict:
         """Get current pending leads"""
         try:
-            leads = self.agent.sheets_service.get_pending_leads()
+            pending_leads = self.sheets_service.get_pending_leads()
             return {
-                "pending_count": len(leads),
-                "pending_leads": leads
+                "pending_count": len(pending_leads),
+                "pending_leads": pending_leads
             }
         except Exception as e:
             return {
@@ -39,30 +41,40 @@ class ABMLeadGenUI:
     def process_leads(self):
         """Process all pending leads"""
         if self.processing:
-            return "Already processing leads..."
+            return "Already processing leads...", self.log_message("Already processing leads...")
         
         self.processing = True
         self.log_message("Starting lead processing...")
         
         try:
-            leads = self.agent.sheets_service.get_pending_leads()
-            self.log_message(f"Found {len(leads)} pending leads")
+            pending_leads = self.sheets_service.get_pending_leads()
+            self.log_message(f"Found {len(pending_leads)} pending leads")
             
-            for lead in leads:
+            for lead in pending_leads:
                 self.log_message(f"Processing lead: {lead.get('CONTACT_PERSON')} ({lead.get('CONTACT_EMAIL')})")
                 success = self.agent.process_lead(lead)
                 if success:
+                    self.sheets_service.update_lead_status(
+                        lead['CONTACT_EMAIL'],
+                        'Processed',
+                        'Successfully processed by agent'
+                    )
                     self.log_message(f"✓ Successfully processed lead: {lead.get('CONTACT_EMAIL')}")
                 else:
+                    self.sheets_service.update_lead_status(
+                        lead['CONTACT_EMAIL'],
+                        'Failed',
+                        'Failed to process lead'
+                    )
                     self.log_message(f"✗ Failed to process lead: {lead.get('CONTACT_EMAIL')}")
-                time.sleep(1)  # Small delay between leads
             
             self.log_message("Lead processing completed")
-            return self.get_pending_leads()
+            return self.get_pending_leads(), self.log_message("Processing completed successfully")
             
         except Exception as e:
-            self.log_message(f"Error: {str(e)}")
-            return {"error": str(e)}
+            error_msg = f"Error: {str(e)}"
+            self.log_message(error_msg)
+            return {"error": str(e)}, self.log_message(error_msg)
         finally:
             self.processing = False
     
@@ -105,9 +117,8 @@ class ABMLeadGenUI:
             ## Status Meanings
             
             - **Empty**: Lead not yet processed
-            - **Email Verified**: Email validated, ready for outreach
+            - **Processed**: Successfully processed by agent
             - **Failed**: Error during processing
-            - **Invalid**: Invalid email format
             
             ## Action Types
             
@@ -121,4 +132,4 @@ class ABMLeadGenUI:
 if __name__ == "__main__":
     ui = ABMLeadGenUI()
     app = ui.create_ui()
-    app.launch(server_name="0.0.0.0", server_port=7860) 
+    app.launch(server_name="localhost", server_port=7864) 
