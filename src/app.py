@@ -1,10 +1,17 @@
+"""
+Main application entry point for the ABM Lead Generation System.
+"""
+
 import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
-from src.core.abm_agent import ABMLeadGenAgent
+from src.agents.process_leads_agent import ProcessLeadsAgent
+from src.services.together_service import TogetherService
 from src.services.sheets_service import GoogleSheetsService
 from src.ui.gradio_interface import GradioInterface
+from src.config.llm_config import TOGETHER_CONFIG, AGENT_CONFIGS
+from src.core.config import Config
 import gradio as gr
 
 # Configure logging
@@ -30,6 +37,7 @@ def setup_environment():
     
     # Validate required environment variables
     required_vars = [
+        'TOGETHER_API_KEY',
         'GOOGLE_APPLICATION_CREDENTIALS',
         'SPREADSHEET_ID',
         'TEXTFULLY_API_KEY',
@@ -46,8 +54,19 @@ def create_app():
     """Create and configure the application"""
     try:
         # Initialize services
-        agent = ABMLeadGenAgent()
-        sheets_service = GoogleSheetsService(agent.config)
+        together_service = TogetherService()
+        
+        # Create configuration for sheets service
+        config = Config()
+        sheets_service = GoogleSheetsService(config)
+        
+        # Initialize agent with configuration
+        agent_config = {
+            'together_service': together_service,
+            'sheets_service': sheets_service,
+            'agent_configs': AGENT_CONFIGS
+        }
+        agent = ProcessLeadsAgent(agent_config)
         
         # Create Gradio interface
         interface = GradioInterface(agent, sheets_service)

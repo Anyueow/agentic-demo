@@ -4,7 +4,7 @@ import requests
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from config import Config
+from src.core.config import Config
 import json
 
 class MessagingService:

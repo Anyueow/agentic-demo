@@ -1,6 +1,6 @@
 import gradio as gr
 from abm_agent import ABMLeadGenAgent
-from config import Config
+from src.core.config import Config
 import json
 from typing import Dict, List
 import threading

@@ -10,7 +10,7 @@ import re
 import time
 from datetime import datetime
 import json
-from config import Config
+from src.core.config import Config
 from sheets_service import GoogleSheetsService
 from messaging_service import MessagingService
 

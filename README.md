@@ -1,95 +1,115 @@
-# agentic-demo
-agent-demo-track
-Gradio Agents &amp; MCP Hackathon 2025
+# ABM Lead Generation System
 
-# ABM Lead Generation Agent
+An intelligent lead generation system that uses AI to analyze company websites, generate personalized value propositions, and create tailored outreach messages.
 
-An intelligent agent for automated Account-Based Marketing (ABM) lead generation and outreach. This system uses AI to process leads from a Google Sheet, verify contact information, and send personalized outreach messages via email and SMS.
+## Architecture
 
-## Features
+The system is built using:
+- **smolagents**: For structured agent-based processing
+- **Together.ai**: For LLM operations with various models
+- **Gradio**: For the user interface
+- **Google Sheets**: For lead management
 
-- 🔄 Automated lead processing from Google Sheets
-- ✉️ Multi-channel outreach (Email & SMS)
-- ✅ Email verification and validation
-- 🤖 AI-powered message personalization
-- 📊 Real-time status tracking
-- 🎯 Account-based marketing focus
-- 📱 Modern web interface
+### Key Components
 
-## Prerequisites
+1. **Agents**:
+   - Company Analyzer: Analyzes company websites and identifies export operations
+   - Value Proposition Generator: Creates personalized value propositions
+   - Message Personalizer: Generates tailored outreach messages
 
-- Python 3.8+
-- Google Cloud Platform account with Sheets API enabled
-- Textfully API key for SMS
-- (Optional) Email verification API key
+2. **Services**:
+   - Together.ai Service: Handles LLM operations
+   - Google Sheets Service: Manages lead data
+   - Messaging Service: Handles email and SMS communications
 
-## Installation
+3. **Configuration**:
+   - LLM settings for different use cases
+   - Agent configurations
+   - API credentials
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd abm-lead-gen
-```
+## Setup
 
-2. Create and activate a conda environment:
-```bash
-conda create -n MLHW python=3.8
-conda activate MLHW
-```
-
-3. Install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Set up environment variables in `.env`:
+2. Set up environment variables:
+```bash
+cp .env
+# Edit .env with your credentials
 ```
-GOOGLE_APPLICATION_CREDENTIALS="/path/to/service_account.json"
-SPREADSHEET_ID="your-spreadsheet-id"
-WORKSHEET_NAME="Leads"
-TEXTFULLY_API_KEY="your-textfully-key"
-VERIFY_API_KEY="your-verify-key"  # optional
-FROM_EMAIL="your-email@domain.com"
-```
+
+3. Get Together.ai API key:
+   - Sign up at https://www.together.ai/
+   - Get your API key from the dashboard
+   - Add to .env: `TOGETHER_API_KEY=your_key_here`
+
+4. Set up Google Sheets:
+   - Create a new Google Sheet
+   - Share with the service account email
+   - Add sheet ID to .env
 
 ## Usage
 
 1. Start the application:
 ```bash
-python app.py
+python src/app.py
 ```
 
-2. Open your browser to `http://localhost:7860`
+2. Access the Gradio interface at http://localhost:7860
 
 3. Use the interface to:
    - View pending leads
-   - Process leads automatically
-   - Monitor outreach status
-   - View processing logs
+   - Run the agent on selected leads
+   - Monitor processing logs
+   - Send personalized messages
 
-## Google Sheets Setup
+## Development
 
-1. Create a new Google Sheet
-2. Share it with the service account email
-3. Create a worksheet named "Leads" with these columns:
-   - CONTACT_PERSON
-   - CONTACT_EMAIL
-   - CONTACT_PHONE
-   - COMPANY
-   - STATUS
-   - NOTES
-   - TIMESTAMP
-   - LAST_UPDATED
-   - SOURCE
-   - PRIORITY
+### Project Structure
+```
+src/
+├── agents/           # Agent implementations
+├── config/           # Configuration files
+├── services/         # Service implementations
+├── ui/              # Gradio interface
+└── app.py           # Main application
+```
 
-## Architecture
+### Testing
+```bash
+pytest tests/
+```
 
-- `app.py`: Gradio web interface
-- `abm_agent.py`: Main agent logic
-- `config.py`: Configuration management
-- `sheets_service.py`: Google Sheets integration
-- `messaging_service.py`: Email and SMS handling
+### Available Models
+- mistral-7b
+- llama-2-70b
+- mixtral-8x7b
+- codellama-34b
+
+## Features
+
+1. **Intelligent Analysis**:
+   - Website content analysis
+   - Export operation detection
+   - Pain point identification
+   - Feature matching
+
+2. **Personalization**:
+   - Company-specific value propositions
+   - Tailored outreach messages
+   - Multi-channel support (email, SMS)
+
+3. **Automation**:
+   - Lead processing pipeline
+   - Message generation
+   - Communication handling
+
+4. **Monitoring**:
+   - Processing logs
+   - Success rates
+   - Error tracking
 
 ## Contributing
 
@@ -101,4 +121,4 @@ python app.py
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License

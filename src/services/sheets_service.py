@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
-from config import Config
+from src.core.config import Config
 import time
 
 class GoogleSheetsService:
