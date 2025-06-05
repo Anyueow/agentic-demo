@@ -5,6 +5,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from src.core.config import Config
 import time
+import requests
 
 class GoogleSheetsService:
     """Service for interacting with Google Sheets"""
@@ -68,26 +69,26 @@ class GoogleSheetsService:
             print(f"Error getting pending leads: {str(e)}")
             return []
     
-    def update_lead_status(self, email: str, status: str, notes: str = None):
-        """Update the status of a lead"""
+    def update_lead_status(self, email: str, status: str = None, action: str = None, follow_up_date: str = None):
+        """Update only the status, action, and follow_up_date columns of a lead"""
         try:
             # Find the row with matching email
             cell = self.worksheet.find(email)
             if not cell:
                 return False
-            
-            # Update status and notes
-            self.worksheet.update_cell(cell.row, 5, status)  # STATUS column
-            if notes:
-                self.worksheet.update_cell(cell.row, 6, notes)  # NOTES column
-            
-            # Update last_updated timestamp
-            self.worksheet.update_cell(
-                cell.row,
-                8,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            )
-            
+            headers = self.worksheet.row_values(1)
+            # Update STATUS
+            if status is not None and 'STATUS' in headers:
+                col = headers.index('STATUS') + 1
+                self.worksheet.update_cell(cell.row, col, status)
+            # Update ACTION
+            if action is not None and 'ACTION' in headers:
+                col = headers.index('ACTION') + 1
+                self.worksheet.update_cell(cell.row, col, action)
+            # Update FOLLOW_UP_DATE
+            if follow_up_date is not None and 'FOLLOW_UP_DATE' in headers:
+                col = headers.index('FOLLOW_UP_DATE') + 1
+                self.worksheet.update_cell(cell.row, col, follow_up_date)
             return True
         except Exception as e:
             print(f"Error updating lead status: {str(e)}")
@@ -165,4 +166,22 @@ class GoogleSheetsService:
             
         except Exception as e:
             print(f"Error retrying failed leads: {str(e)}")
-            return 0 
+            return 0
+    
+    def verify_email_mailboxlayer(self, email: str) -> bool:
+        """Verify email using Mailboxlayer API. Returns True if valid, False otherwise."""
+        api_key = self.config.mailboxlayer_api_key
+        if not api_key:
+            print("[WARN] No Mailboxlayer API key set.")
+            return False
+        url = f"https://apilayer.net/api/check?access_key={api_key}&email={email}"
+        try:
+            resp = requests.get(url)
+            data = resp.json()
+            # Consider valid if format_valid and mx_found are both True
+            is_valid = data.get("format_valid") and data.get("mx_found")
+            print(f"[DEBUG] Mailboxlayer result for {email}: {data} | Verified: {is_valid}")
+            return bool(is_valid)
+        except Exception as e:
+            print(f"[ERROR] Mailboxlayer API error: {e}")
+            return False 

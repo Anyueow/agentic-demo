@@ -294,6 +294,20 @@ class ProcessLeadsAgent:
     def process_lead(self, lead: dict) -> bool:
         """Synchronous wrapper for async process method, returns True on success, False on error."""
         try:
+            # Use Mailboxlayer to verify email before processing
+            email = lead.get('CONTACT_EMAIL')
+            if not email:
+                print(f"Warning: No email found for lead {lead.get('CONTACT_PERSON')}")
+                return False
+            from src.services.sheets_service import GoogleSheetsService
+            sheets_service = GoogleSheetsService(self.config)
+            if sheets_service.verify_email_mailboxlayer(email):
+                print(f"[INFO] Email verified by Mailboxlayer: {email}")
+                sheets_service.update_lead_status(email, status="Email Verified")
+            else:
+                print(f"[INFO] Email failed Mailboxlayer verification: {email}")
+                sheets_service.update_lead_status(email, status="Failed")
+                return False
             # Use asyncio.run if no event loop is running, else use run_until_complete
             try:
                 loop = asyncio.get_running_loop()
@@ -301,7 +315,6 @@ class ProcessLeadsAgent:
                 loop = None
             if loop and loop.is_running():
                 result = asyncio.ensure_future(self.process(lead))
-                # This is not ideal, but for Gradio sync context, we block until done
                 while not result.done():
                     pass
                 output = result.result()

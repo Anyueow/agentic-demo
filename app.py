@@ -1,3 +1,6 @@
+import os
+import signal
+import subprocess
 import gradio as gr
 from src.agents.process_leads_agent import ProcessLeadsAgent
 from src.core.config import Config
@@ -6,6 +9,52 @@ import json
 from typing import Dict, List
 import threading
 import time
+
+def kill_port(port):
+    """Kill any process using the specified port (macOS/Linux)."""
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"], capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split("\n")
+        for pid in pids:
+            if pid:
+                print(f"Killing process on port {port}: PID {pid}")
+                os.kill(int(pid), signal.SIGKILL)
+    except Exception as e:
+        print(f"[WARN] Could not kill process on port {port}: {e}")
+
+def check_and_standardize_headers():
+    """Check worksheet headers and standardize if needed."""
+    config = Config()
+    sheets_service = GoogleSheetsService(config)
+    worksheet = sheets_service.worksheet
+    required_headers = [
+        "COMPANY",
+        "CONTACT_PERSON",
+        "CONTACT_DESIGNATION",
+        "CONTACT_NUMBER",
+        "CONTACT_EMAIL",
+        "LOCATION",
+        "INDUSTRY",
+        "STATUS",
+        "ACTION",
+        "REMARKS",
+        "FOLLOW_UP_DATE"
+    ]
+    headers = worksheet.row_values(1)
+    if headers != required_headers:
+        print("[INFO] Worksheet headers do not match required format. Standardizing...")
+        result = subprocess.run([
+            "python", "/Users/anyueow/Desktop/coding projects/agentic-demo/standardize_worksheet.py"
+        ])
+        if result.returncode != 0:
+            print("[ERROR] Failed to standardize worksheet headers. Exiting.")
+            exit(1)
+        else:
+            print("[INFO] Worksheet headers standardized.")
+    else:
+        print("[INFO] Worksheet headers already standardized.")
 
 class ABMLeadGenUI:
     """Gradio UI for ABM Lead Generation"""
@@ -130,6 +179,8 @@ class ABMLeadGenUI:
         return ui
 
 if __name__ == "__main__":
+    kill_port(7865)
+    check_and_standardize_headers()
     ui = ABMLeadGenUI()
     app = ui.create_ui()
-    app.launch(server_name="localhost", server_port=7864) 
+    app.launch(server_name="localhost", server_port=7865) 
