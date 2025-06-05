@@ -256,38 +256,45 @@ class ProcessLeadsAgent:
         """Process a lead through the complete pipeline"""
         try:
             await self.initialize()
-            
-            # Analyze company
-            content = await self.fetch_website_content(data['website'])
+            company_url = data.get('COMPANY_URL', '').strip()
+            if not company_url or company_url == 'URL not found':
+                # Skip website/context analysis, just generate value proposition and simple email
+                value_proposition = await self.value_proposition_generator.run({
+                    'analysis': {'company': data.get('COMPANY', '')}
+                })
+                # Simple message: just the value proposition
+                messages = {
+                    'email': f"Hi {data.get('CONTACT_PERSON', 'there')},\n\n{value_proposition}\n\nBest regards,\nYour Team",
+                    'sms': f"{value_proposition}"
+                }
+                return {
+                    'value_proposition': value_proposition,
+                    'messages': messages,
+                    'status': 'success'
+                }
+            # Otherwise, run full pipeline
+            content = await self.fetch_website_content(company_url)
             if 'error' in content:
                 return {'error': content['error']}
-            
             analysis = await self.company_analyzer.run({
                 'content': content,
                 'company_data': data
             })
-            
-            # Generate value proposition
             value_proposition = await self.value_proposition_generator.run({
                 'analysis': analysis
             })
-            
-            # Create messages
             messages = await self.message_personalizer.run({
                 'company_data': data,
                 'value_proposition': value_proposition
             })
-            
             return {
                 'analysis': analysis,
                 'value_proposition': value_proposition,
                 'messages': messages,
                 'status': 'success'
             }
-            
         except Exception as e:
             return {'status': 'error', 'error': str(e)}
-            
         finally:
             await self.cleanup()
 

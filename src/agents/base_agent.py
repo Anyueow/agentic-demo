@@ -8,6 +8,7 @@ It includes common functionality and integration points for the LLM SDK.
 from typing import Dict, Any, Optional
 import logging
 from abc import ABC, abstractmethod
+from smolagents import CodeAgent, InferenceClientModel
 
 # TODO: Import LLM SDK when available
 # from llm_sdk import LLMClient, ModelConfig
@@ -27,14 +28,17 @@ class BaseAgent(ABC):
         self.config = config
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        # TODO: Initialize LLM client when SDK is available
-        # self.llm_client = LLMClient(
-        #     model_config=ModelConfig(
-        #         model_name=config.get('model_name', 'default'),
-        #         temperature=config.get('temperature', 0.7),
-        #         max_tokens=config.get('max_tokens', 1000)
-        #     )
-        # )
+        # Initialize InferenceClientModel with Together API key
+        self.llm_model = InferenceClientModel(
+            model_id="mistralai/Mistral-7B-Instruct-v0.2",  # or your preferred model
+            provider="together",
+            token=self.config.together_api_key
+        )
+        self.llm_agent = CodeAgent(tools=[], model=self.llm_model)
+    
+    def generate_llm_response(self, prompt: str, max_tokens: int = 256, temperature: float = 0.7) -> str:
+        """Generate a response from the LLM using smolagents CodeAgent."""
+        return self.llm_agent.run(prompt)
     
     @abstractmethod
     async def process(self, data: Dict[str, Any]) -> Dict[str, Any]:

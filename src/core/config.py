@@ -50,6 +50,7 @@ class Config:
         self.textfully_api_key = os.getenv('TEXTFULLY_API_KEY')
         self.verify_api_key = os.getenv('VERIFY_API_KEY')
         self.mailboxlayer_api_key = os.getenv('MAILBOXLAYER_API_KEY')
+        self.together_api_key = os.getenv('TOGETHER_API_KEY')
         
         # Email configuration
         self.from_email = os.getenv('FROM_EMAIL')

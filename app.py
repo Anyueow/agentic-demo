@@ -31,6 +31,7 @@ def check_and_standardize_headers():
     worksheet = sheets_service.worksheet
     required_headers = [
         "COMPANY",
+        "COMPANY_URL",
         "CONTACT_PERSON",
         "CONTACT_DESIGNATION",
         "CONTACT_NUMBER",
@@ -55,6 +56,18 @@ def check_and_standardize_headers():
             print("[INFO] Worksheet headers standardized.")
     else:
         print("[INFO] Worksheet headers already standardized.")
+
+def check_and_fill_company_urls():
+    """Run the company URL finder script to fill missing COMPANY_URL values."""
+    print("[INFO] Ensuring COMPANY_URL values are filled...")
+    result = subprocess.run([
+        "python", "find_company_urls.py"
+    ])
+    if result.returncode != 0:
+        print("[ERROR] Failed to fill COMPANY_URL values. Exiting.")
+        exit(1)
+    else:
+        print("[INFO] COMPANY_URL values filled.")
 
 class ABMLeadGenUI:
     """Gradio UI for ABM Lead Generation"""
@@ -181,6 +194,7 @@ class ABMLeadGenUI:
 if __name__ == "__main__":
     kill_port(7865)
     check_and_standardize_headers()
+    check_and_fill_company_urls()
     ui = ABMLeadGenUI()
     app = ui.create_ui()
     app.launch(server_name="localhost", server_port=7865) 
